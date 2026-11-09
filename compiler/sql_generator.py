@@ -115,6 +115,18 @@ def build_query(node):
 
     raise ValueError("Unsupported AST node")
 
+    if node.__class__.__name__ == "NaturalJoin":
+        left_query = build_query(node.left)
+        right_query = build_query(node.right)
+
+        source = (
+            f"{left_query.source} "
+            f"NATURAL JOIN "
+            f"{right_query.source}"
+        )
+
+        return SQLQuery(["*"], source)
+
 def generate_sql(node):
     query = build_query(node)
     return query.to_sql()

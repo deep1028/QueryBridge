@@ -95,3 +95,11 @@ class Difference:
 
     def __repr__(self):
         return f"Difference(left = {self.left}, right = {self.right})"
+
+class NaturalJoin:
+    def __inti__(self, left, right):
+        self.left = left
+        self.right = right
+     
+    def __repr__(self):
+        return f"NaturalJoin(left = {self.left}, right = {self.right})"

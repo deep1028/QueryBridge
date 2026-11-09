@@ -1,6 +1,6 @@
 from ast_nodes import (Projection, Selection, Condition, Relation, 
                        Rename, Product, JoinCondition, ThetaJoin, 
-                       Union, Intersection, Difference)
+                       Union, Intersection, Difference, NaturalJoin)
 
 class Parser:
     def __init__(self, tokens):
@@ -41,29 +41,34 @@ class Parser:
                 self.advance()
 
                 if self.current_token()[0] != "IDENTIFIER":
-                    raise ValueError("Expected left attribute in join condition")
+                    raise ValueError("Expected left attribute in join attribute after ⋈")
 
-                left_column = self.current_token()[1]
+                first_identifier = self.current_token()[1]
                 self.advance()
 
-                operator_type, operator = self.current_token()
+                if(
+                    self.position < len(self.tokens) and self.current_token()[0] in [
+                        "GREATER_THAN", "LESS_THAN", "EQUAL"
+                    ]
+                ):
+                    operator_type, operator = self.current_token()
+                    self.advance()
 
-                if operator_type not in ["GREATER_THAN", "LESS_THAN", "EQUAL"]:
-                    raise ValueError("Expected comparison operator in join")
+                    if self.current_token()[0] != "IDENTIFIER":
+                        raise ValueError("Expected right attribute in join condition")
 
-                self.advance()
+                    right_column = self.current_token()[1]
+                    self.advance()
 
-                if self.current_token()[0] != "IDENTIFIER":
-                    raise ValueError("Expected right attribute in join condition")
+                    right = self.parse_primary()
 
-                right_column = self.current_token()[1]
-                self.advance()
+                    condition = JoinCondition(first_identifier, operator, right_column)
 
-                right = self.parse_primary()
-
-                condition = JoinCondition(left_column, operator, right_column)
-
-                left = ThetaJoin(left, condition, right)
+                    left = ThetaJoin(left, condition, right)
+                
+                else:
+                    right = Relation(first_identifier)
+                    left = NaturalJoin(left, right)
 
             elif self.current_token()[0] == "UNION":
                 self.advance()
