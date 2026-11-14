@@ -15,13 +15,16 @@ class Selection:
         return f"Selection(condition = {self.condition}, child = {self.child})"
 
 class Condition:
-    def __init__(self, column, operator, value):
+    def __init__(self, column, operator, value, value_type = "NUMBER"):
         self.column = column
         self.operator = operator
         self.value = value
+        self.value_type = value_type
 
     def __repr__(self):
-        return f"Condition({self.column} {self.operator} {self.value})"
+        return (f"Condition({self.column} {self.operator} "
+                f"{self.self.value}, type = {self.self.value_type}")
+    
 
 class Relation:
     def __init__(self, name):
@@ -97,9 +100,28 @@ class Difference:
         return f"Difference(left = {self.left}, right = {self.right})"
 
 class NaturalJoin:
-    def __inti__(self, left, right):
+    def __init__(self, left, right):
         self.left = left
         self.right = right
      
     def __repr__(self):
         return f"NaturalJoin(left = {self.left}, right = {self.right})"
+
+class LogicalCondition:
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.operator = operator
+        self.right = right
+
+    def __repr__(self):
+        return (
+            f"LogicalCondition("
+            f"{self.left} {self.operator} {self.right})"
+        )
+
+class NotCondition:
+    def __init__(self, condition):
+        self.condition = condition
+
+    def __repr__(self):
+        return f"NotCondition({self.condition})"

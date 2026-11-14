@@ -1,6 +1,7 @@
 from ast_nodes import (Projection, Selection, Condition, Relation, 
                        Rename, Product, JoinCondition, ThetaJoin, 
-                       Union, Intersection, Difference, NaturalJoin)
+                       Union, Intersection, Difference, NaturalJoin, 
+                       LogicalCondition, NotCondition)
 
 class Parser:
     def __init__(self, tokens):
@@ -134,6 +135,76 @@ class Parser:
     def parse_selection(self):
         self.advance()
 
+        condition = self.parse_or_condition()
+
+        if self.current_token()[0] != "LPAREN":
+            raise ValueError("Expected '(' before relation after selection condition")
+
+        self.advance()
+
+        child = self.parse_expression()
+
+        if self.current_token()[0] != "RPAREN":
+            raise ValueError("Expected ')' after selection expression")
+
+        self.advance()
+
+        return Selection(condition, child)
+
+    def parse_or_condition(self):
+        left = self.parse_and_condition()
+
+        while(
+            self.position < len(self.tokens) and
+            self.current_token()[0] == "OR"
+        ):
+            self.advance()
+            right = self.parse_and_condition()
+
+            left = LogicalCondition(left, "OR", right)
+
+        return left
+
+    def parse_and_condition(self):
+        left = self.parse_not_condition()
+
+        while(
+            self.position < len(self.tokens) and
+            self.current_token()[0] == "AND"
+        ):
+            self.advance()
+            right = self.parse_not_condition()
+
+            left = LogicalCondition(left, "AND", right)
+
+        return left
+
+    def parse_not_condition(self):
+        if(
+            self.position < len(self.tokens) and
+            self.current_token()[0] == "NOT"
+        ):
+            self.advance()
+            condition = self.parse_not_condition()
+
+            return NotCondition(condition)
+
+        return self.parse_condition_primary()
+
+    def parse_condition_primary(self):
+        if(
+            self.position < len(self.tokens) and
+            self.current_token()[0] == "LPAREN"
+        ):
+            self.advance()
+            condition = self.parse_or_condition()
+
+            if self.current_token()[0] != "RPAREN":
+                raise ValueError("Expected ')' after logical condition")
+
+            self.advance()
+            return condition
+
         if self.current_token()[0] != "IDENTIFIER":
             raise ValueError("Expected column in selection condition")
 
@@ -142,32 +213,28 @@ class Parser:
 
         operator_type, operator = self.current_token()
 
-        if operator_type not in ["GREATER_THAN", "LESS_THAN", "EQUAL"]:
+        valid_operator = [
+            "GREATER_THAN",
+            "LESS_THAN",
+            "EQUAL",
+            "GREATER_EQUAL",
+            "LESS_EQUAL",
+            "NOT_EQUAL"
+        ]
+
+        if operator_type not in valid_operator:
             raise ValueError("Expected comparison operator")
 
         self.advance()
 
-        if self.current_token()[0] != "NUMBER":
-            raise ValueError("Exepected number after comparison operator")
+        value_type, value = self.current_token()
 
-        value = self.current_token()[1]
-        self.advance()
-
-        condition = Condition(column, operator, value)
-
-        if self.current_token()[0] != "LPAREN":
-            raise ValueError("Expected '(' after selection condition")
+        if value_type not in ["NUMBER", "STRING"]:
+            raise ValueError("Expected a number or string after comparison operator")
 
         self.advance()
 
-        child = self.parse_expression()
-
-        if self.current_token()[0] != "RPAREN":
-            raise ValueError("Expected ')' after selection")
-
-        self.advance()
-
-        return Selection(condition, child)
+        return Condition(column, operator, value, value_type)
 
     def parse_relation(self):
         token_type, token_value = self.current_token()
@@ -176,7 +243,6 @@ class Parser:
             raise ValueError("Expected relation name")
 
         self.advance()
-
         return Relation(token_value)
 
     def parse_rename(self):

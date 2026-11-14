@@ -1,49 +1,27 @@
 def tokenize(query):
     tokens = []
     i = 0
+
     while i < len(query):
         char = query[i]
+
         if char.isspace():
             i += 1
             continue
 
-        if char == "π":
-            tokens.append(("PROJECTION", char))
-            i += 1
-            continue
+        operators = {
+            "π": "PROJECTION",
+            "σ": "SELECTION",
+            "ρ": "RENAME",
+            "×": "CROSS_PRODUCT",
+            "∪": "UNION",
+            "∩": "INTERSECTION",
+            "−": "DIFFERENCE",
+            "⋈": "THETA_JOIN"
+        }
 
-        if char == "σ":
-            tokens.append(("SELECTION", char))
-            i += 1
-            continue
-
-        if char == "ρ":
-            tokens.append(("RENAME", char))
-            i += 1
-            continue
-
-        if char == "×":
-            tokens.append(("CROSS_PRODUCT", char))
-            i += 1
-            continue
-
-        if char == "∪":
-            tokens.append(("UNION", char))
-            i += 1
-            continue
-
-        if char == "∩":
-            tokens.append(("INTERSECTION", char))
-            i += 1
-            continue
-
-        if char == "−":
-            tokens.append(("DIFFERENCE", char))
-            i += 1
-            continue
-
-        if char == "⋈":
-            tokens.append(("THETA_JOIN", char))
+        if char in operators:
+            tokens.append((operators[char], char))
             i += 1
             continue
 
@@ -62,6 +40,20 @@ def tokenize(query):
             i += 1
             continue
 
+        if i + 1 < len(query):
+            pair = query[i:i + 2]
+
+            if pair in [">=", "<=", "!="]:
+                token_type = {
+                    ">=": "GREATER_EQUAL",
+                    "<=": "LESS_EQUAL",
+                    "!=": "NOT_EQUAL"
+                }[pair]
+
+                tokens.append((token_type, pair))
+                i += 2
+                continue
+
         if char == ">":
             tokens.append(("GREATER_THAN", char))
             i += 1
@@ -77,6 +69,29 @@ def tokenize(query):
             i += 1
             continue
 
+        if char in ["'", '"']:
+            quote = char
+            i += 1
+            string_value = ""
+
+            while i < len(query):
+                if query[i] == quote:
+                    if i + 1 < len(query) and query[i + 1] == quote:
+                        string_value += quote
+                        i += 2
+                        continue
+                    break
+
+                string_value += query[i]
+                i += 1
+
+            if i >= len(query):
+                raise ValueError("Unterminated string literal")
+
+            i += 1
+            tokens.append(("STRING", string_value))
+            continue
+
         if char.isalpha() or char == "_":
             identifier = ""
 
@@ -86,7 +101,17 @@ def tokenize(query):
                 identifier += query[i]
                 i += 1
 
-            tokens.append(("IDENTIFIER", identifier))
+            keyword = identifier.upper()
+
+            if keyword == "AND":
+                tokens.append(("AND", identifier))
+            elif keyword == "OR":
+                tokens.append(("OR", identifier))
+            elif keyword == "NOT":
+                tokens.append(("NOT", identifier))
+            else:
+                tokens.append(("IDENTIFIER", identifier))
+
             continue
 
         if char.isdigit():

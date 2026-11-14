@@ -1,3 +1,5 @@
+from ast_nodes import Condition, LogicalCondition, NotCondition
+
 class SQLQuery:
     def __init__(self, columns, source, conditions = None):
         self.columns = columns
@@ -11,6 +13,32 @@ class SQLQuery:
             sql += " WHERE " + " AND ".join(self.conditions)
 
         return sql
+
+def generate_condition_sql(condition):
+    if isinstance(condition, Condition):
+        if  condition.value_type == "STRING":
+            value = "'" + condition.value.replace("'", "''") + "'"
+        else:
+            value = condition.value
+
+        return (
+            f"{condition.column} "
+            f"{condition.operator} "
+            f"{value}"
+        )
+
+    if isinstance(condition, LogicalCondition):
+        left = generate_condition_sql(condition.left)
+        right = generate_condition_sql(condition.right)
+
+        return f"({left} {condition.operator} {right})"
+
+    if isinstance(condition, NotCondition):
+        inner = generate_condition_sql(condition.condition)
+
+        return f"(NOT {inner})"
+
+    raise ValueError("Unsupported condition type")
 
 def build_query(node):
     if node.__class__.__name__ == "Relation":
@@ -42,14 +70,7 @@ def build_query(node):
 
     if node.__class__.__name__ == "Selection":
         query = build_query(node.child)
-        condition = node.condition
-
-        sql_condition = (
-            f"{condition.column} "
-            f"{condition.operator} "
-            f"{condition.value} "
-        )
-
+        sql_condition = generate_condition_sql(node.condition)
         query.conditions.append(sql_condition)
 
         return query
@@ -113,8 +134,6 @@ def build_query(node):
 
         return query
 
-    raise ValueError("Unsupported AST node")
-
     if node.__class__.__name__ == "NaturalJoin":
         left_query = build_query(node.left)
         right_query = build_query(node.right)
@@ -126,6 +145,11 @@ def build_query(node):
         )
 
         return SQLQuery(["*"], source)
+
+
+    raise ValueError("Unsupported AST node")
+
+    
 
 def generate_sql(node):
     query = build_query(node)
